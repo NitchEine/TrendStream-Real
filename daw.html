@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrendStream | AI Video Prompt Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f0f11;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+        .glass-panel {
+            background: rgba(30, 30, 35, 0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-panel-hover:hover {
+            background: rgba(40, 40, 45, 0.8);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #a855f7, #ec4899, #f43f5e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .btn-generate {
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-generate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px -10px rgba(168, 85, 247, 0.6);
+        }
+        .realism-bar-bg {
+            background: rgba(255,255,255,0.1);
+        }
+        .realism-bar-fill {
+            transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .prompt-card {
+            animation: fadeUp 0.5s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        @keyframes fadeUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .skeleton {
+            background: linear-gradient(90deg, #1f1f23 25%, #2a2a30 50%, #1f1f23 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f0f11;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+        .badge-mode {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .badge-pulse {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: currentColor;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .mode-local { background: rgba(34, 197, 94, 0.1); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); }
+        .mode-pollinations { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); }
+        .mode-api { background: rgba(168, 85, 247, 0.1); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.2); }
+        
+        /* Input Focus Glow */
+        input:focus, select:focus {
+            box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.3);
+        }
+        
+        /* Glossary Card */
+        .glossary-card {
+            transition: transform 0.2s ease;
+        }
+        .glossary-card:hover {
+            transform: translateY(-2px);
+            background: rgba(255,255,255,0.05);
+        }
+
+        /* Chip Styles */
+        .theme-chip {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col relative">
+
+    <!-- Dynamic Background -->
+    <div class="fixed inset-0 z-0">
+        <div class="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-900/20 rounded-full blur-[120px] pointer-events-none"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-blue-900/10 rounded-full blur-[120px] pointer-events-none"></div>
+        <div class="absolute top-[40%] left-[50%] transform -translate-x-1/2 w-[800px] h-[800px] bg-pink-900/10 rounded-full blur-[150px] pointer-events-none"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="sticky top-0 z-50 border-b border-white/10 bg-[#0f0f11]/80 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <i class="ph-fill ph-aperture text-purple-500 text-2xl"></i>
+                <span class="font-bold text-xl tracking-tight">TrendStream</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <span id="engineIndicator" class="badge-mode mode-local hidden md:inline-flex">
+                    <span class="badge-pulse"></span>
+                    Offline Engine
+                </span>
+                <button onclick="toggleKeyModal()" class="text-sm text-gray-400 hover:text-white transition flex items-center gap-1.5">
+                    <i class="ph ph-gear"></i> <span class="hidden sm:inline">Settings</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="relative z-10 flex-grow max-w-7xl mx-auto px-4 py-12 w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Left Column: Generator (Sticky) -->
+        <div class="lg:col-span-4 lg:sticky lg:top-24 h-fit space-y-6">
+            
+            <div class="text-left mb-2">
+                <h1 class="text-4xl font-extrabold mb-3 leading-tight"><span class="gradient-text">Create Viral Video Prompts</span></h1>
+                <p class="text-gray-400 text-sm leading-relaxed">
+                    Generate high-fidelity prompts optimized for Sora, Runway Gen-3, and Pika Labs.
+                </p>
+            </div>
+
+            <!-- Generator Panel -->
+            <div class="glass-panel rounded-2xl p-6 shadow-2xl">
+                <div class="space-y-5">
+                    
+                    <!-- Custom Subject Input -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">Custom Subject</label>
+                            <div class="flex gap-3">
+                                <button onclick="saveCurrentTheme()" class="text-[10px] font-bold text-green-400 hover:text-green-300 flex items-center gap-1 transition">
+                                    <i class="ph-bold ph-plus"></i> Save
+                                </button>
+                                <button onclick="clearCustomInput()" class="text-[10px] text-gray-500 hover:text-gray-300 transition">Clear</button>
+                            </div>
+                        </div>
+                        <div class="relative mb-3">
+                            <input type="text" id="customSubject" placeholder="e.g. dancing crocodile, sinking boat..." 
+                                   class="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 pl-10 text-sm text-white focus:outline-none focus:border-purple-500 transition placeholder-gray-600"
+                                   onkeypress="handleInputKey(event)">
+                            <i class="ph ph-magic-wand absolute left-3 top-3.5 text-gray-500 text-lg"></i>
+                        </div>
+                        
+                        <!-- Saved Themes Container -->
+                        <div id="savedThemesContainer" class="flex flex-wrap gap-2 min-h-[24px]">
+                            <!-- Chips will be injected here -->
+                            <span class="text-[10px] text-gray-600 italic w-full" id="emptyThemesMsg">No saved picks yet. Type above and click Save.</span>
+                        </div>
+                    </div>
+
+                    <!-- Aesthetic Selector -->
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 block">Aesthetic</label>
+                        <div class="flex flex-wrap gap-2" id="mood-selector">
+                            <button onclick="setMood('Cinematic', this)" class="mood-btn active bg-white/10 text-white px-3 py-1.5 rounded-lg border border-white/10 text-xs font-medium transition">🎥 Cinematic</button>
+                            <button onclick="setMood('Social Media', this)" class="mood-btn px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-xs text-gray-400 transition">📱 Social Viral</button>
+                            <button onclick="setMood('Nature', this)" class="mood-btn px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-xs text-gray-400 transition">🌿 Nature</button>
+                            <button onclick="setMood('Sci-Fi', this)" class="mood-btn px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-xs text-gray-400 transition">🚀 Sci-Fi</button>
+                            <button onclick="setMood('Abstract', this)" class="mood-btn px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-xs text-gray-400 transition">🎨 Abstract</button>
+                            <button onclick="setMood('Random', this)" class="mood-btn px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-xs text-gray-400 transition">🎲 Random</button>
+                        </div>
+                    </div>
+
+                    <!-- Style Modifier -->
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Style Modifier</label>
+                        <div class="relative">
+                            <select id="styleModifier" class="w-full appearance-none bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 transition cursor-pointer">
+                                <option value="None">Default Style</option>
+                                <option value="Photorealistic">📸 Photorealistic 8K</option>
+                                <option value="Anime">🎌 Anime / Studio Ghibli</option>
+                                <option value="3D Render">🧊 3D Render (Blender/Unreal)</option>
+                                <option value="Vintage">🎞️ Vintage 90s VHS</option>
+                                <option value="Claymation">🧶 Claymation / Stop Motion</option>
+                            </select>
+                            <i class="ph ph-caret-down absolute right-4 top-3.5 text-gray-400 pointer-events-none"></i>
+                        </div>
+                    </div>
+
+                    <div class="pt-2">
+                        <button id="generateBtn" onclick="generatePrompt()" class="btn-generate w-full py-3.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-purple-900/20">
+                            <i class="ph-bold ph-sparkle"></i> Generate Prompt
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pro Tip -->
+            <div class="glass-panel p-4 rounded-xl border-l-4 border-purple-500">
+                <div class="flex items-start gap-3">
+                    <i class="ph-fill ph-lightbulb text-yellow-400 text-xl mt-0.5"></i>
+                    <div>
+                        <h4 class="text-sm font-bold text-white">Pro Tip</h4>
+                        <p class="text-xs text-gray-400 mt-1">Save your favorite subjects using the "+ Save" button to quickly generate variations of them later.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Results & Feed -->
+        <div class="lg:col-span-8 space-y-8">
+            
+            <!-- Loading Skeleton (Hidden by default) -->
+            <div id="loadingState" class="hidden">
+                <div class="glass-panel rounded-2xl p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <div class="h-4 bg-white/5 rounded w-32 skeleton"></div>
+                        <div class="h-8 w-20 bg-white/5 rounded-lg skeleton"></div>
+                    </div>
+                    <div class="h-24 bg-white/5 rounded-xl w-full mb-6 skeleton"></div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="h-20 bg-white/5 rounded-xl skeleton"></div>
+                        <div class="h-20 bg-white/5 rounded-xl skeleton"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Results Feed -->
+            <div id="resultsFeed" class="space-y-6">
+                <!-- New prompts will be injected here -->
+            </div>
+
+            <!-- Static Content: Trending Now -->
+            <div class="pt-8 border-t border-white/5">
+                <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                    <i class="ph-fill ph-fire text-orange-500"></i> Community Picks
+                </h2>
+                
+                <div class="grid grid-cols-1 gap-5">
+                    
+                    <!-- Static Card 1 -->
+                    <div class="glass-panel glass-panel-hover rounded-2xl p-1 border-t border-white/10 transition duration-300">
+                        <div class="bg-[#151518]/80 rounded-xl p-6">
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="inline-block px-2 py-1 rounded-md bg-blue-500/10 text-blue-400 text-[10px] font-bold uppercase tracking-wider border border-blue-500/20">Hyper-Realism</span>
+                                <span class="text-xs text-gray-500">Runway Gen-3</span>
+                            </div>
+                            <p class="text-gray-200 font-mono text-sm leading-relaxed mb-4 selection:bg-purple-500 selection:text-white">
+                                "Macro shot of a chameleon's eye dilating, extreme close-up, 8k resolution, visible texture on scales, iridescent color shifts from green to turquoise, soft jungle bokeh background, National Geographic style cinematography, slow motion 60fps."
+                            </p>
+                            <div class="flex items-center justify-between border-t border-white/5 pt-4 mt-2">
+                                <div class="flex items-center gap-4">
+                                    <div class="text-xs text-gray-400">
+                                        <span class="block font-bold text-white">9.2/10</span>
+                                        <span>Realism</span>
+                                    </div>
+                                </div>
+                                <button onclick="copyStaticText(this)" class="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition">
+                                    <i class="ph ph-copy text-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Static Card 2 -->
+                    <div class="glass-panel glass-panel-hover rounded-2xl p-1 border-t border-white/10 transition duration-300">
+                        <div class="bg-[#151518]/80 rounded-xl p-6">
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="inline-block px-2 py-1 rounded-md bg-pink-500/10 text-pink-400 text-[10px] font-bold uppercase tracking-wider border border-pink-500/20">Cyberpunk</span>
+                                <span class="text-xs text-gray-500">Sora</span>
+                            </div>
+                            <p class="text-gray-200 font-mono text-sm leading-relaxed mb-4 selection:bg-purple-500 selection:text-white">
+                                "A cyberpunk street food vendor in Tokyo 2077, raining night, neon lights reflecting in puddles, steam rising from the ramen bowl, volumetric lighting, holographic advertisements flickering in the background, shot on 35mm film, grainy texture, melancholic atmosphere."
+                            </p>
+                            <div class="flex items-center justify-between border-t border-white/5 pt-4 mt-2">
+                                <div class="flex items-center gap-4">
+                                    <div class="text-xs text-gray-400">
+                                        <span class="block font-bold text-white">8.8/10</span>
+                                        <span>Realism</span>
+                                    </div>
+                                </div>
+                                <button onclick="copyStaticText(this)" class="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition">
+                                    <i class="ph ph-copy text-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Static Card 3 (New: Horror) -->
+                    <div class="glass-panel glass-panel-hover rounded-2xl p-1 border-t border-white/10 transition duration-300">
+                        <div class="bg-[#151518]/80 rounded-xl p-6">
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="inline-block px-2 py-1 rounded-md bg-red-500/10 text-red-400 text-[10px] font-bold uppercase tracking-wider border border-red-500/20">Vintage Horror</span>
+                                <span class="text-xs text-gray-500">Pika 1.0</span>
+                            </div>
+                            <p class="text-gray-200 font-mono text-sm leading-relaxed mb-4 selection:bg-purple-500 selection:text-white">
+                                "Found footage style, handheld shaky camera, 1999 VHS overlay with tracking errors, exploring an abandoned mall at night, flashlight beam cutting through dust particles, eerie silence, low fidelity audio, chromatic aberration."
+                            </p>
+                            <div class="flex items-center justify-between border-t border-white/5 pt-4 mt-2">
+                                <div class="flex items-center gap-4">
+                                    <div class="text-xs text-gray-400">
+                                        <span class="block font-bold text-white">9.5/10</span>
+                                        <span>Realism</span>
+                                    </div>
+                                </div>
+                                <button onclick="copyStaticText(this)" class="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition">
+                                    <i class="ph ph-copy text-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                     <!-- Static Card 4 (New: Claymation) -->
+                     <div class="glass-panel glass-panel-hover rounded-2xl p-1 border-t border-white/10 transition duration-300">
+                        <div class="bg-[#151518]/80 rounded-xl p-6">
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="inline-block px-2 py-1 rounded-md bg-orange-500/10 text-orange-400 text-[10px] font-bold uppercase tracking-wider border border-orange-500/20">Claymation</span>
+                                <span class="text-xs text-gray-500">Sora</span>
+                            </div>
+                            <p class="text-gray-200 font-mono text-sm leading-relaxed mb-4 selection:bg-purple-500 selection:text-white">
+                                "Stop motion animation, clay texture visible on characters, Aardman animation style, a tiny clay astronaut planting a flag on a cheese moon, low frame rate (12fps), thumbprints visible on the clay surface, charming and whimsical lighting."
+                            </p>
+                            <div class="flex items-center justify-between border-t border-white/5 pt-4 mt-2">
+                                <div class="flex items-center gap-4">
+                                    <div class="text-xs text-gray-400">
+                                        <span class="block font-bold text-white">9.8/10</span>
+                                        <span>Realism</span>
+                                    </div>
+                                </div>
+                                <button onclick="copyStaticText(this)" class="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition">
+                                    <i class="ph ph-copy text-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Glossary Section (New Content) -->
+            <div class="pt-12 border-t border-white/5">
+                <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                    <i class="ph-fill ph-book-open text-purple-500"></i> Mastering the Prompt: Glossary
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    <!-- Term 1 -->
+                    <div class="glass-panel glossary-card p-4 rounded-xl border border-white/5">
+                        <h3 class="text-purple-400 font-bold text-sm mb-1">Bokeh</h3>
+                        <p class="text-gray-400 text-xs leading-relaxed">The aesthetic quality of the blur produced in the out-of-focus parts of an image. Good for isolating subjects.</p>
+                    </div>
+
+                    <!-- Term 2 -->
+                    <div class="glass-panel glossary-card p-4 rounded-xl border border-white/5">
+                        <h3 class="text-purple-400 font-bold text-sm mb-1">Volumetric Lighting</h3>
+                        <p class="text-gray-400 text-xs leading-relaxed">Also known as "God Rays." Beams of light visible in the air (like dust in sunlight). Adds atmosphere and depth.</p>
+                    </div>
+
+                    <!-- Term 3 -->
+                    <div class="glass-panel glossary-card p-4 rounded-xl border border-white/5">
+                        <h3 class="text-purple-400 font-bold text-sm mb-1">Subsurface Scattering</h3>
+                        <p class="text-gray-400 text-xs leading-relaxed">How light penetrates translucent surfaces like skin, wax, or leaves. Critical for realistic human faces.</p>
+                    </div>
+
+                    <!-- Term 4 -->
+                    <div class="glass-panel glossary-card p-4 rounded-xl border border-white/5">
+                        <h3 class="text-purple-400 font-bold text-sm mb-1">Chromatic Aberration</h3>
+                        <p class="text-gray-400 text-xs leading-relaxed">A color distortion (red/blue fringes) on edges of objects. Used often to make CGI look like real, imperfect camera footage.</p>
+                    </div>
+
+                    <!-- Term 5 -->
+                    <div class="glass-panel glossary-card p-4 rounded-xl border border-white/5">
+                        <h3 class="text-purple-400 font-bold text-sm mb-1">Anamorphic Lens</h3>
+                        <p class="text-gray-400 text-xs leading-relaxed">A lens type that creates a widescreen cinematic look, often with oval bokeh and horizontal lens flares.</p>
+                    </div>
+
+                    <!-- Term 6 -->
+                    <div class="glass-panel glossary-card p-4 rounded-xl border border-white/5">
+                        <h3 class="text-purple-400 font-bold text-sm mb-1">Ambient Occlusion</h3>
+                        <p class="text-gray-400 text-xs leading-relaxed">A shading method used in 3D/AI to calculate how exposed each point in a scene is to ambient lighting. Adds realistic shadows in crevices.</p>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/5 bg-[#0f0f11] mt-12 py-8">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p class="text-gray-500 text-xs">
+                &copy; 2025 TrendStream.
+            </p>
+        </div>
+    </footer>
+
+    <!-- Settings Modal -->
+    <div id="keyModal" class="fixed inset-0 z-[100] hidden">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="toggleKeyModal()"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md p-4">
+            <div class="glass-panel bg-[#151518] rounded-2xl p-6 shadow-2xl border border-white/10">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-bold text-white">Engine Settings</h3>
+                    <button onclick="toggleKeyModal()" class="text-gray-400 hover:text-white">
+                        <i class="ph ph-x text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- Option 1: Offline -->
+                <div class="mb-4">
+                    <button onclick="setEngine('offline')" class="w-full text-left p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition group">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-sm text-green-400">1. Offline Mode (Default)</span>
+                            <i class="ph-fill ph-lightning text-green-400 opacity-0 group-hover:opacity-100 transition"></i>
+                        </div>
+                        <p class="text-xs text-gray-400">Super fast. Uses internal database. No internet needed.</p>
+                    </button>
+                </div>
+
+                <!-- Option 2: Free Cloud AI -->
+                <div class="mb-4">
+                    <button onclick="setEngine('pollinations')" class="w-full text-left p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 transition group relative overflow-hidden">
+                         <div class="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-blue-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition duration-1000"></div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-sm text-blue-400">2. Free Cloud AI (Pollinations)</span>
+                            <i class="ph-fill ph-cloud text-blue-400 opacity-0 group-hover:opacity-100 transition"></i>
+                        </div>
+                        <p class="text-xs text-gray-400">Uses Pollinations.ai. Smart, creative, free. No key required.</p>
+                    </button>
+                </div>
+
+                <!-- Option 3: Google Gemini -->
+                <div class="mb-4">
+                    <div class="p-4 rounded-xl border border-purple-500/20 bg-purple-500/5">
+                         <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold text-sm text-purple-400">3. Google Gemini (Premium)</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-3">Requires your own API Key. Highest quality.</p>
+                        <input type="password" id="apiKeyInput" placeholder="Paste Gemini API Key..." 
+                           class="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 mb-2">
+                        <button onclick="saveKey()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 rounded-lg text-xs transition">
+                            Save Key & Use Gemini
+                        </button>
+                    </div>
+                </div>
+
+                <div class="text-[10px] text-gray-600 text-center">
+                    Current Engine: <span id="modalCurrentEngine" class="text-gray-400 font-bold">Offline</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logic -->
+    <script>
+        // --- EXPANDED DATASETS FOR OFFLINE MODE ---
+        const DATA = {
+            subjects: {
+                "Cinematic": ["an elderly clockmaker", "a mysterious woman in a red dress", "a solitary astronaut", "a tired detective", "a professional ballerina", "a vintage car collector", "a soldier writing a letter", "a violinist on a rooftop"],
+                "Sci-Fi": ["a cybernetic samurai", "a holographic AI assistant", "a spaceship pilot", "a dystopian rebel", "a neon-lit android", "a futuristic courier", "a mech warrior undergoing repairs", "a floating brain in a jar"],
+                "Nature": ["a wild grizzly bear", "a blooming cherry blossom tree", "a swarm of bioluminescent jellyfish", "a peregrine falcon diving", "a massive thunderstorm", "a dew-covered spiderweb", "a pack of wolves in snow", "a volcanic eruption"],
+                "Abstract": ["floating liquid mercury spheres", "fractal geometric shapes", "exploding paint powder", "melting glass sculptures", "sound waves visualized as light", "ink dropping into water", "smoke forming human shapes", "crystal growth time-lapse"],
+                "Social Media": ["a gen-z influencer", "a cute golden retriever puppy", "a chef plating a gourmet meal", "a skateboarder doing a trick", "a fashion model on a runway", "a barista pouring latte art", "a kitten playing with yarn", "a fitness trainer doing yoga"]
+            },
+            actions: {
+                "Cinematic": ["inspecting a pocket watch", "walking through a foggy alley", "staring into the void", "smoking a cigarette in the rain", "dancing in an empty theater", "driving down a coastal highway", "reading a burning letter", "running from an unseen force"],
+                "Sci-Fi": ["hacking a terminal", "navigating an asteroid field", "repairing a robot arm", "running from security drones", "interfacing with the matrix", "delivering a glowing package", "waking up from cryosleep", "scanning a new planet"],
+                "Nature": ["hunting for salmon", "swaying in the wind", "pulsating with light", "soaring above clouds", "rolling across the plains", "glistening in the morning sun", "emerging from a cave", "fighting for territory"],
+                "Abstract": ["colliding in slow motion", "morphing into endless patterns", "dissolving into smoke", "reflecting infinite colors", "vibrating to a beat", "shattering into crystals", "looping infinitely", "defying gravity"],
+                "Social Media": ["doing a viral dance challenge", "looking at the camera with puppy eyes", "sprinkling garnish on a dish", "landing a kickflip", "posing for a photoshoot", "winking at the camera", "unboxing a new gadget", "reacting to a surprise"]
+            },
+            settings: {
+                "Cinematic": ["in a dusty antique shop", "on a rainy parisian street", "on the surface of mars", "in a smoky jazz club", "on a grand opera stage", "at a sunset cliffside", "in a trench during war", "inside a mirror maze"],
+                "Sci-Fi": ["in a neon-lit cyberpunk city", "inside a spaceship cockpit", "in a junk scrapyard of the future", "in a white sterile laboratory", "in a virtual reality void", "in a floating sky city", "underground bunker 2099", "on a dyson sphere"],
+                "Nature": ["in a rushing river", "in a tranquil japanese garden", "in the deep ocean abyss", "high above the snowy peaks", "over a vast desert", "in a dense rainforest", "on a glacier edge", "in a coral reef"],
+                "Abstract": ["in a void of pure white", "inside a kaleidoscope", "in a zero-gravity chamber", "in a studio with black background", "in a dreamscape", "underwater", "inside a computer chip", "in a mirror dimension"],
+                "Social Media": ["in a modern living room", "at a sunny park", "in a busy restaurant kitchen", "at a skate park", "in a high-end studio", "in a cozy cafe", "in a bedroom with led lights", "at a beach party"]
+            },
+            camera: ["shot on 35mm film", "anamorphic lens", "IMAX 70mm", "GoPro hero 11 FPV", "Phantom Flex 4k slow motion", "macro lens 100mm", "drone establishing shot", "handheld shaky cam", "dolly zoom effect", "low angle wide shot", "fisheye lens", "telephoto lens 200mm"],
+            lighting: ["golden hour lighting", "volumetric god rays", "neon noir lighting", "soft diffused window light", "harsh dramatic shadows", "bioluminescent glow", "studio three-point lighting", "overcast moody lighting", "strobe lighting", "candlelight"],
+            details: ["highly detailed texture", "8k resolution", "unreal engine 5 render", "photorealistic", "cinematic color grading", "depth of field", "motion blur", "grainy film texture", "hyper-realistic water physics", "ray tracing", "chromatic aberration", "subsurface scattering"],
+            styles: {
+                "Photorealistic": "photorealistic, 8k, highly detailed, unreal engine 5 style",
+                "Anime": "Studio Ghibli style, anime aesthetic, cel shaded, vibrant colors, 2D animation style",
+                "3D Render": "3D clay render, octane render, blender 3D, plastic texture, glossy finish",
+                "Vintage": "VHS glitch effect, 1990s home video style, low fidelity, scanlines, chromatic aberration",
+                "Claymation": "stop motion animation, clay texture, finger prints visible, aardman style",
+                "None": "cinematic, high quality"
+            }
+        };
+
+        // --- STATE ---
+        let currentMood = "Cinematic";
+        let activeEngine = localStorage.getItem('preferred_engine') || 'offline';
+        let savedThemes = JSON.parse(localStorage.getItem('saved_themes') || "[]");
+        
+        // --- API KEY MANAGEMENT ---
+        function getApiKey() {
+            return localStorage.getItem('gemini_api_key') || "";
+        }
+
+        function updateEngineIndicator() {
+            const el = document.getElementById('engineIndicator');
+            const modalLabel = document.getElementById('modalCurrentEngine');
+            
+            // Reset Classes
+            el.classList.remove('mode-local', 'mode-api', 'mode-pollinations');
+            
+            if (activeEngine === 'gemini' && getApiKey()) {
+                el.innerHTML = '<span class="badge-pulse"></span> Gemini Engine Active';
+                el.classList.add('mode-api');
+                modalLabel.innerText = "Google Gemini";
+            } else if (activeEngine === 'pollinations') {
+                el.innerHTML = '<span class="badge-pulse"></span> Free AI (Pollinations)';
+                el.classList.add('mode-pollinations');
+                modalLabel.innerText = "Free Cloud AI";
+            } else {
+                // Default Fallback
+                activeEngine = 'offline';
+                el.innerHTML = '<span class="badge-pulse"></span> Offline Engine';
+                el.classList.add('mode-local');
+                modalLabel.innerText = "Offline Mode";
+            }
+            el.classList.remove('hidden');
+        }
+
+        function toggleKeyModal() {
+            const modal = document.getElementById('keyModal');
+            const input = document.getElementById('apiKeyInput');
+            modal.classList.toggle('hidden');
+            if(!modal.classList.contains('hidden')) {
+                input.value = localStorage.getItem('gemini_api_key') || '';
+                updateEngineIndicator(); // Refresh label
+            }
+        }
+
+        function setEngine(engineName) {
+            activeEngine = engineName;
+            localStorage.setItem('preferred_engine', engineName);
+            updateEngineIndicator();
+            toggleKeyModal(); // Close modal
+            // If switching to offline, clear key maybe? No, keep it saved just in case.
+        }
+
+        function saveKey() {
+            const input = document.getElementById('apiKeyInput');
+            const key = input.value.trim();
+            if(key) {
+                localStorage.setItem('gemini_api_key', key);
+                setEngine('gemini');
+                alert("Switched to Google Gemini Engine!");
+            } else {
+                alert("Please enter a key first.");
+            }
+        }
+
+        // --- UI LOGIC ---
+        function setMood(mood, btn) {
+            currentMood = mood;
+            document.querySelectorAll('.mood-btn').forEach(b => {
+                b.classList.remove('bg-white/10', 'text-white', 'active');
+                b.classList.add('text-gray-400');
+            });
+            btn.classList.remove('text-gray-400');
+            btn.classList.add('bg-white/10', 'text-white', 'active');
+        }
+
+        function handleInputKey(e) {
+            if(e.key === 'Enter') {
+                saveCurrentTheme();
+            }
+        }
+
+        function clearCustomInput() {
+            document.getElementById('customSubject').value = '';
+        }
+
+        // --- THEME SAVING LOGIC ---
+        function renderThemes() {
+            const container = document.getElementById('savedThemesContainer');
+            container.innerHTML = '';
+
+            if (savedThemes.length === 0) {
+                container.innerHTML = '<span class="text-[10px] text-gray-600 italic w-full" id="emptyThemesMsg">No saved picks yet. Type above and click Save.</span>';
+                return;
+            }
+
+            savedThemes.forEach(theme => {
+                const chip = document.createElement('div');
+                chip.className = 'theme-chip inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer group';
+                chip.innerHTML = `
+                    <span class="text-[11px] text-gray-300 group-hover:text-white" onclick="loadTheme('${theme.replace(/'/g, "\\'")}')">${theme}</span>
+                    <button onclick="deleteTheme('${theme.replace(/'/g, "\\'")}')" class="text-gray-500 hover:text-red-400 ml-1 p-0.5 rounded-full transition">
+                        <i class="ph-bold ph-x text-[10px]"></i>
+                    </button>
+                `;
+                container.appendChild(chip);
+            });
+        }
+
+        function saveCurrentTheme() {
+            const input = document.getElementById('customSubject');
+            const val = input.value.trim();
+            
+            if (!val) return;
+            
+            if (savedThemes.includes(val)) {
+                // animation visual cue that it exists
+                alert("Theme already saved!");
+                return;
+            }
+            
+            if(savedThemes.length >= 10) {
+                alert("Max 10 saved themes allowed. Please delete some first.");
+                return;
+            }
+
+            savedThemes.push(val);
+            localStorage.setItem('saved_themes', JSON.stringify(savedThemes));
+            renderThemes();
+        }
+
+        function deleteTheme(val) {
+            savedThemes = savedThemes.filter(t => t !== val);
+            localStorage.setItem('saved_themes', JSON.stringify(savedThemes));
+            renderThemes();
+        }
+
+        function loadTheme(val) {
+            const input = document.getElementById('customSubject');
+            input.value = val;
+            // Visual feedback
+            input.focus();
+            input.classList.add('bg-purple-500/20');
+            setTimeout(() => input.classList.remove('bg-purple-500/20'), 300);
+        }
+
+
+        // --- GENERATION CONTROLLER ---
+        async function generatePrompt() {
+            const loadingState = document.getElementById('loadingState');
+            const btn = document.getElementById('generateBtn');
+            const customInput = document.getElementById('customSubject').value.trim();
+            const styleMod = document.getElementById('styleModifier').value;
+            
+            loadingState.classList.remove('hidden');
+            loadingState.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Dreaming...';
+
+            try {
+                let result;
+                
+                // ROUTING LOGIC
+                if (activeEngine === 'gemini') {
+                    // Check key
+                    const key = getApiKey();
+                    if(!key) throw new Error("Missing Gemini Key");
+                    result = await callGeminiAPI(key, customInput, styleMod);
+
+                } else if (activeEngine === 'pollinations') {
+                    // Use free cloud
+                    result = await callPollinationsAI(customInput, styleMod);
+
+                } else {
+                    // Offline
+                    await new Promise(r => setTimeout(r, 600)); // fake delay
+                    result = generateLocalPrompt(customInput, styleMod);
+                }
+
+                if (result) prependResultCard(result);
+
+            } catch (error) {
+                console.error("Generation failed", error);
+                
+                // Fallback Logic
+                if(activeEngine !== 'offline') {
+                    alert(`Cloud Engine Error: ${error.message}. \n\nSwitching to Offline Mode for this result.`);
+                    const fallback = generateLocalPrompt(customInput, styleMod);
+                    prependResultCard(fallback);
+                }
+            } finally {
+                loadingState.classList.add('hidden');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ph-bold ph-sparkle"></i> Generate Prompt';
+            }
+        }
+
+        // --- ENGINE 1: OFFLINE ---
+        function generateLocalPrompt(customSubject, styleMod) {
+            let mood = currentMood;
+            if (mood === 'Random') {
+                const keys = Object.keys(DATA.subjects);
+                mood = keys[Math.floor(Math.random() * keys.length)];
+            }
+
+            const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+            let subject = (customSubject && customSubject.length > 0) ? customSubject : pick(DATA.subjects[mood]);
+            
+            const action = pick(DATA.actions[mood]);
+            const setting = pick(DATA.settings[mood]);
+            const cam = pick(DATA.camera);
+            const light = pick(DATA.lighting);
+            const detail1 = pick(DATA.details);
+            
+            let styleText = "";
+            let categoryDisplay = mood;
+            if (styleMod && styleMod !== "None") {
+                styleText = `, ${DATA.styles[styleMod]}`;
+                categoryDisplay = `${styleMod} • ${mood}`;
+            }
+
+            let promptText = `${currentMood === 'Cinematic' ? 'Cinematic shot of' : 'Video of'} ${subject} ${action} ${setting}, ${light}, ${cam}, ${detail1}${styleText}.`;
+
+            const visual = `Focuses on the ${subject.split(' ').slice(-2).join(' ')} with ${light}. The ${cam} gives it depth.${styleMod !== 'None' ? ' ' + styleMod + ' aesthetic.' : ''}`;
+
+            return {
+                prompt: promptText,
+                visualDescription: visual,
+                realismScore: (7.5 + Math.random() * 2).toFixed(1),
+                category: categoryDisplay,
+                realismComment: "Generated using Offline Engine."
+            };
+        }
+
+        // --- ENGINE 2: POLLINATIONS (FREE CLOUD) ---
+        async function callPollinationsAI(customSubject, styleMod) {
+            // Pollinations takes GET requests simply
+            let instruction = `Create a JSON object for a video prompt. 
+            Context: Aesthetic: ${currentMood}, Style: ${styleMod}. 
+            Subject: ${customSubject || "Random creative subject"}.
+            Return ONLY raw JSON with keys: prompt, visualDescription, realismScore, category, realismComment.`;
+
+            const url = `https://text.pollinations.ai/${encodeURIComponent(instruction)}`;
+            
+            const response = await fetch(url);
+            if(!response.ok) throw new Error("Pollinations API unreachable");
+            
+            const text = await response.text();
+            
+            // Clean up potential markdown wrapping
+            const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            
+            return JSON.parse(cleaned);
+        }
+
+        // --- ENGINE 3: GEMINI (PREMIUM) ---
+        async function callGeminiAPI(key, customSubject, styleMod) {
+            const model = "gemini-2.5-flash-preview-09-2025"; 
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+
+            let styleInstruction = styleMod !== "None" ? `Apply this visual style strictly: ${styleMod}.` : "";
+            let subjectInstruction = customSubject ? `The video MUST feature: "${customSubject}".` : "Choose a random, interesting subject.";
+
+            const systemInstruction = `
+                You are an expert AI Video Prompt Engineer.
+                STYLE: ${currentMood}
+                ${styleInstruction}
+                ${subjectInstruction}
+                Generate a SINGLE, trendy, highly detailed video generation prompt JSON.
+                Format: { "prompt": "", "visualDescription": "", "realismScore": number, "category": "", "realismComment": "" }
+            `;
+
+            const payload = {
+                contents: [{ parts: [{ text: "Generate a video prompt." }] }],
+                systemInstruction: { parts: [{ text: systemInstruction }] },
+                generationConfig: { responseMimeType: "application/json" }
+            };
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error("Gemini API Error " + response.status);
+            const data = await response.json();
+            return JSON.parse(data.candidates[0].content.parts[0].text);
+        }
+
+        // --- RENDER LOGIC ---
+        function prependResultCard(data) {
+            const feed = document.getElementById('resultsFeed');
+            const cardId = 'card-' + Date.now();
+            
+            let scoreColor = 'text-green-400';
+            let barColor = 'bg-green-500';
+            if(data.realismScore < 7.5) { scoreColor = 'text-yellow-400'; barColor = 'bg-yellow-500'; }
+            if(data.realismScore < 5) { scoreColor = 'text-red-400'; barColor = 'bg-red-500'; }
+
+            const html = `
+                <div id="${cardId}" class="prompt-card glass-panel rounded-2xl p-1 border-t border-white/20 mb-6">
+                    <div class="bg-[#151518] rounded-xl p-6 relative overflow-hidden">
+                        <div class="flex justify-between items-center mb-4 relative z-10">
+                            <span class="inline-block px-2 py-1 rounded-md bg-purple-500/10 text-purple-400 text-[10px] font-bold uppercase tracking-wider border border-purple-500/20">
+                                ${data.category || currentMood}
+                            </span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-gray-500">Generated just now</span>
+                                <button onclick="copyCardText('${cardId}')" class="text-gray-400 hover:text-white transition flex items-center gap-1 text-xs bg-white/5 px-2 py-1 rounded-lg">
+                                    <i class="ph ph-copy"></i> Copy
+                                </button>
+                            </div>
+                        </div>
+
+                        <p class="prompt-text text-xl text-white font-medium leading-relaxed mb-6 font-mono selection:bg-purple-500 selection:text-white">
+                            "${data.prompt}"
+                        </p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/10 pt-6 relative z-10">
+                            <div>
+                                <div class="flex items-center gap-2 mb-2 text-gray-400">
+                                    <i class="ph ph-eye text-purple-400"></i>
+                                    <span class="text-xs font-bold uppercase">Visual Breakdown</span>
+                                </div>
+                                <p class="text-sm text-gray-300 leading-relaxed">${data.visualDescription}</p>
+                            </div>
+
+                            <div>
+                                <div class="flex items-center gap-2 mb-2 text-gray-400">
+                                    <i class="ph ph-chart-bar text-green-400"></i>
+                                    <span class="text-xs font-bold uppercase">Realism Prediction</span>
+                                </div>
+                                <div class="flex items-end gap-2 mb-1">
+                                    <span class="text-2xl font-bold text-white">${data.realismScore}</span>
+                                    <span class="text-xs text-gray-500 mb-1">/ 10</span>
+                                </div>
+                                <div class="realism-bar-bg w-full h-1.5 rounded-full overflow-hidden mb-2">
+                                    <div class="realism-bar-fill h-full ${barColor}" style="width: ${data.realismScore * 10}%"></div>
+                                </div>
+                                <p class="text-xs text-gray-400 italic">"${data.realismComment || ''}"</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            feed.insertAdjacentHTML('afterbegin', html);
+        }
+
+        function copyCardText(cardId) {
+            const card = document.getElementById(cardId);
+            const text = card.querySelector('.prompt-text').innerText.replace(/"/g, '');
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = card.querySelector('button');
+                const original = btn.innerHTML;
+                btn.innerHTML = '<i class="ph-bold ph-check text-green-400"></i> Copied!';
+                setTimeout(() => btn.innerHTML = original, 2000);
+            });
+        }
+
+        function copyStaticText(btn) {
+            const card = btn.closest('.glass-panel');
+            const text = card.querySelector('p').innerText.replace(/"/g, '');
+            navigator.clipboard.writeText(text).then(() => {
+                const original = btn.innerHTML;
+                btn.innerHTML = '<i class="ph-bold ph-check text-green-400"></i>';
+                setTimeout(() => btn.innerHTML = original, 2000);
+            });
+        }
+
+        // Init
+        updateEngineIndicator();
+        renderThemes();
+    </script>
+</body>
+</html>
